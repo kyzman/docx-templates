@@ -9,6 +9,16 @@ from docx import Document
 class ProcessTemplate:
     def __init__(self, templ: DocxTemplate, context: dict | list[dict]):
         self.template = templ
+        context_keys = context.keys()
+        template_keys = templ.get_undeclared_template_variables()
+        result1 = template_keys - context_keys
+        result2 = context_keys - template_keys
+        if result1:
+            print(f'[Ошибка!] В шаблоне {templ.template_file} присутствует лишнее поле {result1}!\n'
+                  f'Продолжение работы невозможно!')
+            raise SystemExit(1)
+        if result2:
+            print(f"[Внимание!] В шаблоне {templ.template_file} отсутствует: {result2}")
         self.context = context
         self.template.render(self.context)
 
@@ -84,7 +94,7 @@ def create_templates_buffer(files: set, dataset: dict, path: str = '') -> dict[M
 
 def main():
     files = {'heading_1.docx', 'heading_2.docx', 'body_1.docx', 'body_2.docx', 'bottom_1.docx',  'bottom_2.docx'}
-    dataset = {'heading_1.docx': {'company': 'ООО "Первая Компания"', 'Project': 'Проект №1'},
+    dataset = {'heading_1.docx': {'company': 'ООО "Первая Компания"', 'Project': 'Проект №1', 'data': 'Что-то особенное!'},
                'heading_2.docx': {'number': '001'},
                'body_1.docx': {'company_name': 'ГК "Госактивы"',
                                'company_address': 'Россия, Москва, пл. Победы, д.1',
