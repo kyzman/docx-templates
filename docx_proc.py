@@ -6,13 +6,16 @@ from docxtpl import DocxTemplate
 from docx import Document
 
 
+def keys_validation(dataset_values, template_values) -> tuple[set, set]:
+    dataset_vs_template = dataset_values - template_values
+    template_vs_dataset = template_values - dataset_values
+    return dataset_vs_template, template_vs_dataset
+
+
 class ProcessTemplate:
     def __init__(self, templ: DocxTemplate, context: dict | list[dict]):
         self.template = templ
-        context_keys = context.keys()
-        template_keys = templ.get_undeclared_template_variables()
-        result1 = template_keys - context_keys
-        result2 = context_keys - template_keys
+        result1, result2 = keys_validation(context.keys(), templ.get_undeclared_template_variables())
         if result1:
             print(f'[Ошибка!] В шаблоне {templ.template_file} присутствует лишнее поле {result1}!\n'
                   f'Продолжение работы невозможно!')
