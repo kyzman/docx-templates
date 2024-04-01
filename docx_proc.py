@@ -3,6 +3,8 @@ import operator
 from collections import OrderedDict
 
 from docxtpl import DocxTemplate
+
+import datasets  # Данные для работы сборщика документа
 from docx import Document
 
 
@@ -16,12 +18,14 @@ class ProcessTemplate:
     def __init__(self, templ: DocxTemplate, context: dict | list[dict]):
         self.template = templ
         result1, result2 = keys_validation(context.keys(), templ.get_undeclared_template_variables())
-        if result1:
-            print(f'[Ошибка!] В шаблоне {templ.template_file} присутствует лишнее поле {result1}!\n'
-                  f'Продолжение работы невозможно!')
-            raise SystemExit(1)
         if result2:
-            print(f"[Внимание!] В шаблоне {templ.template_file} отсутствует: {result2}")
+            print(f'[Ошибка!] В шаблоне {templ.template_file} присутствуют поля, которых нет в данных:', end=' ')
+            print(*list(result2), sep=", ")
+            print(f'[Выход] Продолжение работы невозможно!')
+            raise SystemExit(1)
+        if result1:
+            print(f'[Внимание!] В шаблоне {templ.template_file} отсутствуют поля для вставки данных:', end=' ')
+            print(*list(result1), sep=", ")
         self.context = context
         self.template.render(self.context)
 
@@ -58,6 +62,7 @@ class DocxPreAssembly:
 
 
 class DocxCreateCommonInMem:
+    """ Подготовка, создание и сохранение в памяти специального шаблона, по которому будет идти сборка документа """
     def __init__(self, assembly: DocxPreAssembly):
         self.root = io.BytesIO()
         source = Document()
@@ -96,34 +101,11 @@ def create_templates_buffer(files: set, dataset: dict, path: str = '') -> dict[M
 
 
 def main():
-    files = {'heading_1.docx', 'heading_2.docx', 'body_1.docx', 'body_2.docx', 'bottom_1.docx',  'bottom_2.docx'}
-    dataset = {'heading_1.docx': {'company': 'ООО "Первая Компания"', 'Project': 'Проект №1', 'data': 'Что-то особенное!'},
-               'heading_2.docx': {'number': '001'},
-               'body_1.docx': {'company_name': 'ГК "Госактивы"',
-                               'company_address': 'Россия, Москва, пл. Победы, д.1',
-                               'court_name': 'Суд Москвы',
-                               'date_from': '13.02.2024',
-                               'case_number': '54',
-                               'financial_organization': 'Банк Москвы',
-                               'orgn': '35482100551',
-                               'inn': '950643635656',
-                               'reg_address': 'Россия, Москва, пр. Банковый, д.1',
-                               },
-               'body_2.docx': {'bill_number': '67582',
-                               'company_name': 'ГК "Госактивы"',
-                               'table': [{'pp_number': '1', 'lot_number': '1', 'pp_date': '14.02.2024', 'winner_name': 'Петров А.В.', 'payment_purpose': 'выплата', 'payment_sum': '1503000'},
-                                         {'pp_number': '2', 'lot_number': '2', 'pp_date': '14.02.2024', 'winner_name': 'Иванов Д.Я.', 'payment_purpose': 'выплата', 'payment_sum': '570000'},
-                                         {'pp_number': '3', 'lot_number': '3', 'pp_date': '15.02.2024', 'winner_name': 'Кошкин С.М.', 'payment_purpose': 'выплата', 'payment_sum': '45000'},
-                                         ],
-                               'total': '2118000'
-                               },
-               'bottom_1.docx': {'sign': 'Кочетков', 'day': '26', 'month': 'марта', 'year': '24'},
-               'bottom_2.docx': {'full_name': 'Кочетков Пётр Яковлевич', 'credentials': 'Тюняев А.П.'}
-               }
-    order = {'heading_1.docx': 0, 'heading_2.docx': 1, 'body_1.docx': 2, 'body_2.docx': 3, 'bottom_1.docx': 4,  'bottom_2.docx': 5}
-
-    buffer = create_templates_buffer(files, dataset, 'docx/')
-    assembly = DocxPreAssembly(order, buffer)
+    # создание буфера в памяти из предоставленных шаблонов
+    buffer = create_templates_buffer(datasets.files, datasets.dataset, 'docx/')
+    # предварительная сборка шаблонов по заданному порядку
+    assembly = DocxPreAssembly(datasets.order, buffer)
+    # сборка и сохранение финального документа из подготовленной последовательности шаблонов
     asm_buffer = DocxFinalAssembly('result.docx', DocxCreateCommonInMem(assembly).get(), assembly)
     asm_buffer.save()
 
